@@ -39,13 +39,14 @@ export function shouldSkipFiles(path, size) {
     const parts = path.split("/");
     const fileName = parts[parts.length - 1];
 
-    if (path.some((part) => SKIP_DIRS.includes(part))) return true;
+    if (parts.some((part) => SKIP_DIRS.includes(part))) return true;
     if (SKIP_FILES.has(fileName)) return true;
     if (typeof size === "number" && size > 200_000) return true;
 
     const ext = fileName.includes(".")
-        ? fileName.slice(fileName.lastIndexOf(".") + 1).toLower() : "";
+        ? fileName.slice(fileName.lastIndexOf(".") + 1).toLowerCase() : "";
     if (SKIP_EXTENSIONS.has(ext)) return true;
+    if (fileName.endsWith("min.js")) return true;
 
     return false;
 }

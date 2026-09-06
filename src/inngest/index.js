@@ -1,5 +1,6 @@
-import { inngest } from "./client";
+import { inngest } from "./client.js";
+import { indexRepo } from "./functions/indexRepo.js";
 
 export { inngest }
 
-export const functions = []
+export const functions = [indexRepo]
