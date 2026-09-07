@@ -6,8 +6,9 @@ import indexRoutes from "./routes/index.routes.js"
 
 const app = express();
 
-app.use(express.json());
-app.use("/api/inngest", serve({ client: inngest, functions }))
+
+app.use(express.json({ limit: "50mb" }));
+app.use("/api/inngest", serve({ client: inngest, functions }));
 
 app.get('/', (req, res) => {
     res.send("success")

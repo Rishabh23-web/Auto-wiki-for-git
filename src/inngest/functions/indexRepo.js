@@ -19,10 +19,10 @@ export const indexRepo = inngest.createFunction(
             return chunkFiles(files, repoKey)
         });
 
-        await step.run("save-to-pinecone", async () => {
-            await saveChunk(repoKey, documents)
+        const saveResult = await step.run("save-to-pinecone", async () => {
+            return saveChunk(repoKey, documents)
         })
 
-        return { repo: repoKey, fileCount: files.length, chunkCount: documents.length };
+        return { repo: repoKey, fileCount: files.length, chunkCount: documents.length, saved: saveResult.saved };
     }
 )

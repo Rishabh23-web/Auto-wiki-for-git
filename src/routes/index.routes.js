@@ -12,6 +12,7 @@ router.post("/", async (req, res) => {
         name: "repo/index.requested",
         data: { githubToken, owner, repo, repoKey }
     });
+    res.json("Repo indexing");
 });
 
 export default router;
