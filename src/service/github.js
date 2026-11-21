@@ -46,7 +46,7 @@ export function shouldSkipFiles(path, size) {
     const ext = fileName.includes(".")
         ? fileName.slice(fileName.lastIndexOf(".") + 1).toLowerCase() : "";
     if (SKIP_EXTENSIONS.has(ext)) return true;
-    if (fileName.endsWith("min.js")) return true;
+    if (fileName.endsWith(".min.js")) return true;
 
     return false;
 }
@@ -80,23 +80,23 @@ export async function fetchRepoFiles(token, owner, repo) {
     })
 
     const files = [];
+    const BATCH_SIZE = 10;
+    const validItems = tree.tree.filter((item) =>
+        item.type === "blob" && !shouldSkipFiles(item.path, item.size)
+    ).slice(0, 200);
 
-    for (const item of tree.tree) {
-        if (item.type !== "blob") continue;
-        if (shouldSkipFiles(item.path, item.size)) continue;
+    for (let i = 0; i < validItems.length; i += BATCH_SIZE) {
+        const batch = validItems.slice(i, i + BATCH_SIZE);
+        const batchFiles = await Promise.all(batch.map(async (item) => {
+            const { data: blob } = await octokit.rest.git.getBlob({
+                owner,
+                repo,
+                file_sha: item.sha,
+            });
+            return { path: item.path, content: Buffer.from(blob.content, "base64").toString("utf8") }
+        }))
+        files.push(...batchFiles);
 
-        const { data: blob } = await octokit.rest.git.getBlob({
-            owner,
-            repo,
-            file_sha: item.sha,
-        });
-
-        files.push({
-            path: item.path,
-            content: Buffer.from(blob.content, "base64").toString("utf8"),
-        });
-
-        if (files.length >= 200) break;
     }
     return files;
 }

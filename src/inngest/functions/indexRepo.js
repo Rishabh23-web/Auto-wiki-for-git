@@ -15,7 +15,7 @@ export const indexRepo = inngest.createFunction(
             return fetchRepoFiles(githubToken, owner, repoName)
         })
 
-        const documents = await step.run("chunk-files", async => {
+        const documents = await step.run("chunk-files", async () => {
             return chunkFiles(files, repoKey)
         });
 
