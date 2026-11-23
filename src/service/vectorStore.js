@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import { OpenAIEmbeddings } from "@langchain/openai";
-import { PineconeStore } from "@langchain/pinecone";
 import { Pinecone } from "@pinecone-database/pinecone";
 
 const embeddings = new OpenAIEmbeddings({ model: "text-embedding-3-small" });
@@ -26,12 +25,24 @@ function normalizeDocuments(documents) {
         }))
         .filter((doc) => doc.pageContent.trim().length > 0);
 }
-
+/**
+ * Assigns a deterministic SHA-256 record ID to each record from repo, metadata.path and chunk content
+ * If this function breaks we won't get unique id to records and our database will crash
+ */
 function buildRecordId(repo, metadata, content) {
     return createHash("sha256")
         .update(`${repo}:${metadata.path ?? ""}:${content}`)
         .digest("hex");
 }
+
+/**
+ * Normalizes document chunks, embeds them in batches of 100 via OpenAI, and upserts them into a repo-scoped Pinecone namespace.
+ * Without batching inside this loop, large repos exceed OpenAI's per-request token limit and crash the background indexing job.
+ *
+ * @param {string} repo - Repository identifier in "owner/repo" format.
+ * @param {Array<{pageContent: string, metadata?: Object}>} documents - Chunked documents produced by chunkFiles.
+ * @returns {Promise<{saved: boolean, chunkCount: number}>}
+ */
 
 export async function saveChunk(repo, documents) {
     const chunks = normalizeDocuments(documents);
@@ -43,24 +54,45 @@ export async function saveChunk(repo, documents) {
     const namespace = repo.replace("/", "-");
 
     const index = getIndex(namespace);
-    const texts = chunks.map((doc) => doc.pageContent);
-    const vectors = await embeddings.embedDocuments(texts);
+    for (let i = 0; i < chunks.length; i += UPSERT_BATCH_SIZE) {
+        const batch = chunks.slice(i, i + UPSERT_BATCH_SIZE);
+        const texts = batch.map((doc) => doc.pageContent);
+        const vectors = await embeddings.embedDocuments(texts);
+        const records = batch.map((doc, j) => ({
+            id: buildRecordId(repo, doc.metadata, doc.pageContent),
+            values: vectors[j],
+            metadata: {
+                text: doc.pageContent,
+                path: doc.metadata.path,
+                repo: doc.metadata.repo ?? repo,
+            }
+        }));
 
-    const records = chunks.map((doc, i) => ({
-        id: buildRecordId(repo, doc.metadata, doc.pageContent),
-        values: vectors[i],
-        metadata: {
-            text: doc.pageContent,
-            path: doc.metadata.path,
-            repo: doc.metadata.repo ?? repo,
-        }
-    }));
-
-    for (let i = 0; i < records.length; i += UPSERT_BATCH_SIZE) {
         await index.upsert({
-            records: records.slice(i, i + UPSERT_BATCH_SIZE),
+            records
         })
     }
 
     return { saved: true, chunkCount: chunks.length };
 }
+
+export async function searchChunk(repo, query, topK = 6) {
+
+    if (!query?.trim()) return []
+    const namespace = repo.replace("/", "-");
+
+    const index = getIndex(namespace);
+
+    const queryVector = await embeddings.embedQuery(query);
+    const dbSearch = await index.query({ vector: queryVector, topK, includeMetadata: true })
+    const responses = dbSearch.matches ?? [];
+    return responses.map((response) =>
+    ({
+        path: response.metadata?.path,
+        text: response.metadata?.text,
+        score: response.score ?? 0
+    }))
+
+
+}
+
