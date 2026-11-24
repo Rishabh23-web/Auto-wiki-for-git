@@ -14,7 +14,7 @@ app.get('/', (req, res) => {
     res.send("success")
 })
 
-app.use("/api/index", indexRoutes);
+app.use("/api", indexRoutes);
 
 app.listen(3000, () => {
     console.log(`Server listening on port 3000`)

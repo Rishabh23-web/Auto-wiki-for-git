@@ -6,7 +6,7 @@ import { generateWikiAnswer } from "../service/wikiGenerator.js";
 
 const router = Router();
 
-router.post("/", async (req, res) => {
+router.post("/index", async (req, res) => {
     const githubToken = req.body.githubToken || process.env.GITHUB_TOKEN;
     const { owner, repo, repoKey } = parseRepo(req.body.repo);
 
