@@ -78,7 +78,7 @@ export async function saveChunk(repo, documents) {
 
 export async function searchChunk(repo, query, topK = 6) {
 
-    if (!query?.trim()) return []
+    if (!repo?.trim() || !query?.trim()) return []
     const namespace = repo.replace("/", "-");
 
     const index = getIndex(namespace);
