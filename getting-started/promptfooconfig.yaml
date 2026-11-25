@@ -1,0 +1,46 @@
+description: "Auto-Wiki-for-Git RAG grounding & citation evaluation"
+
+prompts:
+  - "{{question}}"
+
+providers:
+  - file://./promptfoo-provider.js
+
+defaultTest:
+  assert:
+    - type: llm-rubric
+      threshold: 0.5
+      value: |
+        Evaluate the assistant's response to "{{question}}" given ONLY the provided repository code chunks: {{chunks}}
+
+        First, check whether {{chunks}} actually contains code answering "{{question}}":
+        - Case A (Empty chunks or missing answer): If {{chunks}} is empty OR does not contain code/implementation details answering "{{question}}", the assistant MUST state that the repository/chunks do not contain enough information or need to be indexed first. Give Score 1.0 if it clearly refuses without guessing, and Score 0.1 if it hallucinates or guesses.
+        - Case B (Answerable from chunks): If {{chunks}} contains the relevant code, score strictly as follows:
+          * Score 0.1: Vague, generic, or unsupported answers that miss key code details.
+          * Score 0.5: Near-perfect answers that capture the main behavior accurately but miss minor details or file/function references.
+          * Score 1.0: Exact, production-grade answers grounded in the code chunks with accurate technical details.
+tests:
+  # Test 1: Automatically uses defaultTest (llm-rubric)
+  - vars:
+      repo: Rishabh23-web/sample
+      question: What file size limit does shouldSkipFile enforce?
+      chunks:
+        - path: src/services/chunker.js
+          text: "export function shouldSkipFile(size) { if (typeof size === 'number' && size > 200_000) return true; return false; }"
+
+  # Test 2: Automatically uses defaultTest (llm-rubric)
+  - vars:
+      repo: Rishabh23-web/sample
+      question: How does this repository verify JWT user tokens?
+      chunks:
+        - path: src/services/chunker.js
+          text: "export async function chunkFiles(files, repo) { return []; }"
+
+  # Test 3: Overrides defaultTest with its own assert block
+  - vars:
+      repo: Rishabh23-web/sample
+      question: How does indexRepo work?
+      chunks: []
+    assert:
+      - type: icontains
+        value: No indexed code chunks found
