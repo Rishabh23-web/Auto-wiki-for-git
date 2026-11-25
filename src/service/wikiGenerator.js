@@ -29,6 +29,16 @@ export async function withRetry(fn, maxRetries = 3) {
     }
 }
 
+function toText(content) {
+    if (typeof content === "string") return content;
+    if (Array.isArray(content)) {
+        return content
+            .map((part) => (typeof part === "string" ? part : part.text ?? ""))
+            .join("");
+    }
+    return String(content ?? "")
+}
+
 /**
  * generateWikiAnswer function converts our project into a full fledge chatting RAG enabled chatting agent used for gaining knowledge about our github repo
  * @param {string} repo - Repository identifier in "owner/repo" format.
@@ -59,5 +69,5 @@ export async function generateWikiAnswer(repo, question, chunks) {
         content: question,
     },
     ]));
-    return res.content;
+    return toText(res.content);
 }
